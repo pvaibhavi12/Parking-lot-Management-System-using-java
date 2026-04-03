@@ -1,0 +1,252 @@
+import java.util.*;
+
+// -------------------------------------------------------
+// 1. ABSTRACT BASE CLASS (OOPS: Abstraction & Inheritance)
+// -------------------------------------------------------
+abstract class Vehicle {
+    protected String licensePlate;
+    protected String type;
+
+    public Vehicle(String licensePlate, String type) {
+        this.licensePlate = licensePlate;
+        this.type = type;
+    }
+
+    public String getLicensePlate() { return licensePlate; }
+    public String getType() { return type; }
+    
+    // OOPS: Polymorphism - Every vehicle calculates its own fee
+    public abstract double calculateFee(long hours);
+}
+
+// -------------------------------------------------------
+// 2. CONCRETE CLASSES (OOPS: Polymorphism)
+// -------------------------------------------------------
+class Car extends Vehicle {
+    public Car(String licensePlate) {
+        super(licensePlate, "Car");
+    }
+    
+    @Override
+    public double calculateFee(long hours) {
+        return hours * 20.0; // 20 Rs/Unit per hour
+    }
+}
+
+class Bike extends Vehicle {
+    public Bike(String licensePlate) {
+        super(licensePlate, "Bike");
+    }
+    
+    @Override
+    public double calculateFee(long hours) {
+        return hours * 10.0; // 10 Rs/Unit per hour
+    }
+}
+
+class Truck extends Vehicle {
+    public Truck(String licensePlate) {
+        super(licensePlate, "Truck");
+    }
+    
+    @Override
+    public double calculateFee(long hours) {
+        return hours * 50.0; // 50 Rs/Unit per hour
+    }
+}
+
+// -------------------------------------------------------
+// 3. TICKET CLASS (Encapsulation of Parking Data)
+// -------------------------------------------------------
+class Ticket {
+    private String licensePlate;
+    private int floor;
+    private int slot;
+    private long entryTime;
+
+    public Ticket(String licensePlate, int floor, int slot) {
+        this.licensePlate = licensePlate;
+        this.floor = floor;
+        this.slot = slot;
+        this.entryTime = System.currentTimeMillis(); // Capture entry time
+    }
+
+    public int getFloor() { return floor; }
+    public int getSlot() { return slot; }
+    public long getEntryTime() { return entryTime; }
+}
+
+// -------------------------------------------------------
+// 4. PARKING LOT SYSTEM (The Logic Core)
+// -------------------------------------------------------
+class ParkingLot {
+    private int floors;
+    private int slotsPerFloor;
+    
+    // DSA: 2D Array to represent the grid
+    private Vehicle[][] parkingSlots; 
+    
+    // DSA: HashMap for O(1) Search (License -> Ticket)
+    private Map<String, Ticket> activeTickets;
+
+    public ParkingLot(int floors, int slotsPerFloor) {
+        this.floors = floors;
+        this.slotsPerFloor = slotsPerFloor;
+        this.parkingSlots = new Vehicle[floors][slotsPerFloor];
+        this.activeTickets = new HashMap<>();
+    }
+
+    // FEATURE: Park a Vehicle
+    public void parkVehicle(int type, String licensePlate) {
+        if (activeTickets.containsKey(licensePlate)) {
+            System.out.println(">> Error: Vehicle with this plate is already parked.");
+            return;
+        }
+
+        Vehicle vehicle = null;
+        if (type == 1) vehicle = new Car(licensePlate);
+        else if (type == 2) vehicle = new Bike(licensePlate);
+        else if (type == 3) vehicle = new Truck(licensePlate);
+        else {
+            System.out.println(">> Invalid Vehicle Type.");
+            return;
+        }
+
+        // Search for the first available slot (Strategy: Nearest first)
+        for (int i = 0; i < floors; i++) {
+            for (int j = 0; j < slotsPerFloor; j++) {
+                if (parkingSlots[i][j] == null) {
+                    
+                    // Optional Logic: Trucks only allowed on Ground Floor (Floor 0)
+                    if (vehicle instanceof Truck && i > 0) {
+                        continue; // Skip upper floors for trucks
+                    }
+
+                    // Park the vehicle
+                    parkingSlots[i][j] = vehicle;
+                    Ticket ticket = new Ticket(licensePlate, i, j);
+                    activeTickets.put(licensePlate, ticket);
+
+                    System.out.println(">> Success! " + vehicle.getType() + " parked at Floor " + i + ", Slot " + j);
+                    return;
+                }
+            }
+        }
+        System.out.println(">> Sorry, Parking Lot is Full!");
+    }
+
+    // FEATURE: Unpark a Vehicle
+    public void unparkVehicle(String licensePlate) {
+        if (!activeTickets.containsKey(licensePlate)) {
+            System.out.println(">> Error: Vehicle not found.");
+            return;
+        }
+
+        Ticket ticket = activeTickets.get(licensePlate);
+        Vehicle vehicle = parkingSlots[ticket.getFloor()][ticket.getSlot()];
+
+        // Calculate Duration
+        long durationMillis = System.currentTimeMillis() - ticket.getEntryTime();
+        // Converting to hours (For demo, we treat every started minute as an hour)
+        long hours = (durationMillis / 1000 / 60) + 1; // +1 to charge minimum 1 hour
+        
+        double fee = vehicle.calculateFee(hours);
+
+        // Clear the slot
+        parkingSlots[ticket.getFloor()][ticket.getSlot()] = null;
+        activeTickets.remove(licensePlate);
+
+        System.out.println("\n--- RECEIPT ---");
+        System.out.println("Vehicle: " + licensePlate);
+        System.out.println("Type: " + vehicle.getType());
+        System.out.println("Duration: " + hours + " hours (approx)");
+        System.out.println("Total Fee: Rs. " + fee);
+        System.out.println("---------------\n");
+    }
+
+    // FEATURE: Find Vehicle Location
+    public void findVehicle(String licensePlate) {
+        if (activeTickets.containsKey(licensePlate)) {
+            Ticket t = activeTickets.get(licensePlate);
+            System.out.println(">> Vehicle found at: Floor " + t.getFloor() + ", Slot " + t.getSlot());
+        } else {
+            System.out.println(">> Vehicle is not in the parking lot.");
+        }
+    }
+
+    // FEATURE: Display Status
+    public void displayStatus() {
+        System.out.println("\n--- Parking Lot Status ---");
+        for (int i = 0; i < floors; i++) {
+            System.out.print("Floor " + i + ": ");
+            for (int j = 0; j < slotsPerFloor; j++) {
+                if (parkingSlots[i][j] == null) {
+                    System.out.print("[ Empty ] ");
+                } else {
+                    System.out.print("[ " + parkingSlots[i][j].getType().charAt(0) + "-" + parkingSlots[i][j].getLicensePlate() + " ] ");
+                }
+            }
+            System.out.println();
+        }
+        System.out.println("--------------------------");
+    }
+}
+
+// -------------------------------------------------------
+// 5. MAIN CLASS (Console Interface)
+// -------------------------------------------------------
+public class ParkingLotProject {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        
+        // Initialize Parking Lot: 3 Floors, 5 Slots each
+        ParkingLot parkingLot = new ParkingLot(3, 5);
+        
+        System.out.println("=== SMART PARKING SYSTEM ===");
+        
+        while (true) {
+            System.out.println("\n1. Park Vehicle");
+            System.out.println("2. Unpark Vehicle");
+            System.out.println("3. Find Vehicle");
+            System.out.println("4. Display Status");
+            System.out.println("5. Exit");
+            System.out.print("Enter choice: ");
+            
+            int choice = sc.nextInt();
+            
+            switch (choice) {
+                case 1:
+                    System.out.println("Select Type: 1. Car  2. Bike  3. Truck");
+                    int type = sc.nextInt();
+                    System.out.print("Enter License Plate: ");
+                    String parkPlate = sc.next();
+                    parkingLot.parkVehicle(type, parkPlate);
+                    break;
+                    
+                case 2:
+                    System.out.print("Enter License Plate to Unpark: ");
+                    String unparkPlate = sc.next();
+                    parkingLot.unparkVehicle(unparkPlate);
+                    break;
+                    
+                case 3:
+                    System.out.print("Enter License Plate to Find: ");
+                    String findPlate = sc.next();
+                    parkingLot.findVehicle(findPlate);
+                    break;
+                    
+                case 4:
+                    parkingLot.displayStatus();
+                    break;
+                    
+                case 5:
+                    System.out.println("Exiting System...");
+                    sc.close();
+                    return;
+                    
+                default:
+                    System.out.println("Invalid Option!");
+            }
+        }
+    }
+}
